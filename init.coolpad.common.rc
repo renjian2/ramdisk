@@ -1,0 +1,243 @@
+# Zeusis platform common init rc configs go here
+on boot
+    #charger node
+    chown system system /sys/class/power_supply/battery/charging_enabled
+    chmod 0664 /sys/class/power_supply/battery/charging_enabled
+    chown system system /sys/class/power_supply/battery/battery_charging_enabled
+    chmod 0664 /sys/class/power_supply/battery/battery_charging_enabled
+
+#power optimize service
+service power-engine /system/bin/power-engine
+   class late_start
+   user root
+   group root
+
+
+service oeminfod /system/bin/oeminfo_daemon
+    class main
+    user root
+
+# redirect logcat to file
+# yulong begin add
+# add by zhuliang 2016.08.18, for logredirct
+service logredirect /system/bin/logredirect -s
+    class main
+    socket logredirect stream 0660 root system
+    oneshot
+# yulong end
+
+on early-init
+mkdir /cust 0771 system system
+
+on fs
+wait /dev/block/bootdevice/by-name/custom
+mount ext4 /dev/block/bootdevice/by-name/custom /cust ro barrier=1
+
+#Coolpad offline log begin----->>
+on post-fs-data
+    mkdir /data/zslogs 0755 log log
+    setprop init.zslogd.start 0
+    mkdir /data/misc/display 0770 system graphics
+
+# ffbm boot mode
+on property:ro.bootmode=ffbm-00
+    setprop init.zslogd.start 1
+
+on property:ro.bootmode=ffbm-01
+    setprop init.zslogd.start 1
+
+on property:ro.bootmode=ffbm-02
+    setprop init.zslogd.start 1
+
+#normal boot mode
+on property:sys.boot_completed=1
+    setprop init.zslogd.start 1
+
+/*pick for http://gerrit.zeusis.com:8080/#/c/53962/ to open MobileVocZipzslog by meipeng 20170621*/
+#disable offlinelog when user version and factoryflag is true
+on property:ro.build.type=user && property:persist.zeusis.sys.factoryflag=T
+    setprop persist.sys.offlinelog 0
+
+#enable offline log when offline log is enable
+on property:persist.sys.offlinelog=1
+    setprop persist.zslogd.ready 1
+
+#disable offline log when offline log is disable
+on property:persist.sys.offlinelog=0
+    setprop persist.zslogd.ready 0
+/*pick for http://gerrit.zeusis.com:8080/#/c/53962/ to open MobileVocZipzslog by meipeng 20170621*/
+
+#only disable offline log when factoryflag is true of user version
+on property:ro.build.type=user && property:persist.zeusis.sys.factoryflag=T
+    setprop persist.sys.offlinelog 0
+
+on property:persist.sys.offlinelog=1 && property:persist.zslogd.logcatd=0
+    setprop persist.zslogd.logcatd zs_logcatd
+
+on property:persist.sys.offlinelog=1 && property:persist.zslogd.battd=0
+    setprop persist.zslogd.battd zs_battd
+
+on property:persist.sys.offlinelog=0
+    setprop persist.zslogd.logcatd 0
+    setprop persist.zslogd.battd 0
+    setprop persist.zslogd.tcpdumpd 0
+    setprop persist.zslogd.mdlogd 0
+    setprop persist.zslogd.gpslogd 0
+    setprop persist.zslogd.wlanlogd 0
+    setprop persist.zslogd.sensorlogd 0
+    setprop persist.zslogd.btlogd 0
+    setprop persist.sys.download_mode 0
+    setprop persist.sys.ssr.enable_ramdumps 0
+
+#logcat on/off
+on property:persist.zslogd.logcatd=zs_logcatd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    # all exec/services are called with umask(077), so no gain beyond 0700
+    mkdir /data/zslogs/logcat 0700 system system
+    start zs_logcatd
+
+on property:persist.zslogd.logcatd=0
+    stop zs_logcatd
+
+#battlog on /off
+on property:persist.zslogd.battd=zs_battd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    mkdir /data/zslogs/battery 0700 system system
+    start zs_battd
+
+on property:persist.zslogd.battd=0
+    stop zs_battd
+
+#netlog on/off
+on property:persist.zslogd.tcpdumpd=zs_tcpdumpd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    mkdir /data/zslogs/tcpdump 0700 system system
+    start zs_tcpdumpd
+
+on property:persist.zslogd.tcpdumpd=0
+    stop zs_tcpdumpd
+
+#modem log on/off
+on property:persist.zslogd.mdlogd=zs_mdlogd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    mkdir /data/zslogs/modem 0700 system system
+    wait /sdcard
+    start zs_mdlogd
+
+on property:persist.zslogd.mdlogd=0
+    start zs_stopmdiag
+
+#gps log on/off
+on property:persist.zslogd.gpslogd=zs_gpslogd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    mkdir /data/zslogs/gps 0700 system system
+    wait /sdcard
+    start zs_gpslogd
+
+on property:persist.zslogd.gpslogd=0
+    start zs_stopmdiag
+
+#wlan log on/off
+on property:persist.zslogd.wlanlogd=zs_wlanlogd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    mkdir /data/zslogs/wlan 0700 system system
+    wait /sdcard
+    start zs_wlanlogd
+
+on property:persist.zslogd.wlanlogd=0
+    start zs_stopmdiag
+
+#sensor log on/off
+on property:persist.zslogd.sensorlogd=zs_sensorlogd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    mkdir /data/zslogs/sensor 0700 system system
+    wait /sdcard
+    setprop persist.sys.diag.mdlog 1
+    setprop persist.sys.diag.mdlog.once 1
+    start zs_sensorlogd
+
+on property:persist.zslogd.sensorlogd=0
+    start zs_stopmdiag
+
+#bt log on/off
+on property:persist.zslogd.btlogd=zs_btlogd && property:persist.sys.offlinelog=1 && property:init.zslogd.start=1
+    mkdir /data/zslogs/bt 0700 bluetooth bluetooth
+    chmod 0777 /data/zslogs/bt
+    write /data/zslogs/bt/btsnoop_hci.log 1
+    chmod 0777 /data/zslogs/bt/btsnoop_hci.log
+
+
+#service of logcat
+service zs_logcatd /system/bin/logcat -b all -v threadtime -v usec -v printable -D -f /data/zslogs/logcat/logcat -r 4096 -n 768
+    class late_start
+    user system
+    group system
+    disabled
+    seclabel u:r:zs_logcatd:s0
+    writepid /dev/cpuset/system-background/tasks
+
+#service of batlog
+service zs_battd /system/bin/battd
+    class late_start
+    user system
+    group system
+    disabled
+    writepid /dev/cpuset/system-background/tasks
+
+#service of netlog
+service zs_tcpdumpd /system/xbin/tcpdump -i any -nnXSs 0 -C 128 -W 4 -Z system -w /data/zslogs/tcpdump/tcpdump.cap
+    class late_start
+    user root
+    group root
+    disabled
+    writepid /dev/cpuset/system-background/tasks
+
+#service of stop diag_mdlog
+service zs_stopmdiag /system/bin/diag_mdlog -k
+    class late_start
+    user root
+    group root
+    oneshot
+    disabled
+
+#service of diag_mdlog for modem log
+service zs_mdlogd /system/bin/diag_mdlog -bce -f /system/etc/qxdm/modem.cfg -s 128 -n 16 -o /data/zslogs/modem
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+#service of diag_mdlog for gps log
+service zs_gpslogd /system/bin/diag_mdlog -bce -f /system/etc/qxdm/gps.cfg -s 128 -n 100 -o /data/zslogs/gps
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+#service of diag_mdlog for wlan log
+service zs_wlanlogd /system/bin/diag_mdlog -bce -f /system/etc/qxdm/wlan.cfg -s 128 -n 16 -o /data/zslogs/wlan
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+
+#service of diag_mdlog for sensor log
+service zs_sensorlogd /system/bin/diag_mdlog -bce -f /system/etc/qxdm/sensor.cfg -s 128 -n 16 -o /data/zslogs/sensor
+    class late_start
+    user root
+    group root
+    disabled
+    oneshot
+    writepid /dev/cpuset/system-background/tasks
+#<<-----Coolpad offline log end
+#Add custom fearture
+
+service custd /system/bin/cust_daemon
+class main
+oneshot
+disabled
+
+
+service diag_manufactory /system/bin/diag_manufactory
+    class main
+    user root
+    group root
