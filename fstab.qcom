@@ -1,0 +1,24 @@
+# Android fstab file.
+# The filesystem that contains the filesystem checker binary (typically /system) cannot
+# specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
+
+#TODO: Add 'check' as fs_mgr_flags with data partition.
+# Currently we dont have e2fsck compiled. So fs check would failed.
+
+#<src>                                                <mnt_point>  <type>  <mnt_flags and options>                     <fs_mgr_flags>
+# < LAFITE-2565 xiongzu'an 20160229 begin
+/dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1,discard                                wait
+# LAFITE-2565 xiongzu'an 20160229 end >
+# <LAFITE-351 zhaodonghong 2015-12-31 start >
+# < LAFITE-7140 yanwenlong 2016-4-12 begin
+/dev/block/bootdevice/by-name/userdata       /data        ext4    nosuid,nodev,barrier=1,noauto_da_alloc,discard      wait,check,forceencrypt=footer
+# LAFITE-7140 yanwenlong 2016-4-11 end >
+# <LAFITE-351 zhaodonghong 2015-12-31 end >
+# < LAFITE-1105 sunyaxi 20160129 begin
+# /devices/soc.0/7864900.sdhci/mmc_host*        /storage/sdcard1   vfat    nosuid,nodev         wait,voldmanaged=sdcard1:auto,noemulatedsd,encryptable=footer
+/dev/block/zram0             none         swap    defaults zramsize=536870912
+/dev/block/bootdevice/by-name/config         /frp  emmc    defaults                                            defaults
+# < LAFITE-1126 sunyaxi 20160201 begin
+/devices/platform/msm_hsusb*                  /storage/usbotg    vfat    nosuid,nodev         wait,voldmanaged=usbotg:auto
+# LAFITE-1126 sunyaxi 20160201 end >
+# LAFITE-1105 sunyaxi 20160129 end >
